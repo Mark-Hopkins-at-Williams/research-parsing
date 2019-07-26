@@ -109,7 +109,7 @@ def train_net(net, dmanager, batch_size, n_epochs, learning_rate, verbose=True):
         running_loss = 0.0
         total_train_loss = 0       
         for i, data in enumerate(train_loader, 0):
-            print(len(train_loader))
+            print('{}/{}'.format(i, len(train_loader)))
             inputs = data['instance']#[dmanager.vectorize(inst) for inst in data['instance']]
             labels = [dmanager.tag_index(c) for 
                           c in data['tag']]
