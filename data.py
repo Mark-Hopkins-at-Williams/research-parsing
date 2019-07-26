@@ -62,15 +62,16 @@ class DataManager:
     into vector embeddings.
     
     """    
-    def __init__(self, 
-                 dataset, 
-                 tags):
+    def __init__(self, train_dataset, dev_dataset, test_dataset, tags):
         
-        self.dataset = dataset        
-        #self.num_phrases = {tag: len(self.dataset.restrict_to_tag(tag)) for 
-        #                    tag in tags}
+        self.dataset = {'train': train_dataset, 
+                        'dev': dev_dataset, 
+                        'test': test_dataset}
+
         self.tags = tags
-        self.train, self.dev, self.test = DataManager.get_samplers(self.dataset, 0.3, 0.3)
+        self.train = DataManager.init_sampler(self.dataset['train'])
+        self.dev = DataManager.init_sampler(self.dataset['dev'])
+        self.test = DataManager.init_sampler(self.dataset['test'])
         self._tag_indices = {tags[i]: i for i in range(len(tags))}
         
     def tag(self, tag_index):
@@ -111,28 +112,14 @@ class DataManager:
         Recognized partition ids: 'train', 'dev', 'test'.
         
         """        
-        return DataLoader(self.dataset, batch_size=batch_size,
+        return DataLoader(self.dataset[partition], batch_size=batch_size,
                           sampler=self.get_sampler(partition))
 
     
     @staticmethod
-    def get_samplers(dataset, dev_percent, test_percent):
-        """
-        Splits a TaggedPhraseDataset in train, dev, and test partitions,
-        according to the specified percentages, then returns
-        torch.SubsetRandomSamplers over each partition.
-        
-        """
-        dev_size = int(dev_percent * len(dataset))
-        test_size = int(test_percent * len(dataset))
-        train_ids = set(range(len(dataset)))
-        dev_ids = random.sample(train_ids, dev_size)
-        train_ids = train_ids - set(dev_ids)
-        test_ids = random.sample(train_ids, test_size)
-        train_ids = list(train_ids - set(test_ids))
+    def init_sampler(dataset):        
+        train_ids = list(range(len(dataset)))
         train_sampler = SubsetRandomSampler(train_ids)
-        dev_sampler = SubsetRandomSampler(dev_ids)
-        test_sampler = SubsetRandomSampler(test_ids)
-        return train_sampler, dev_sampler, test_sampler
+        return train_sampler
 
 
