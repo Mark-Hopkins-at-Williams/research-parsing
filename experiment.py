@@ -21,7 +21,7 @@ def tensor_batcher(t, batch_size):
 def test_training(d, k):
     def nth_dim_positive_data(n, d, k):
         data = torch.randn(d, k)
-        u = torch.cat([torch.sign(data[2:3]), data])
+        u = torch.cat([torch.clamp(torch.sign(data[2:3]), min=0), data])
         return u.t()
 
     train = nth_dim_positive_data(2, d, k)
@@ -42,7 +42,8 @@ def train_parser(train_csv, dev_csv):
     print('dev size: {}'.format(dev.shape[0]))
     classifier = DropoutClassifier(768*2,200,2)
     net = train_net(classifier, train, dev, tensor_batcher,
-                    batch_size=96, n_epochs=30, learning_rate=0.001,
+                    batch_size=96, 
+                    n_epochs=30, learning_rate=0.001,
                     verbose=True)
     return net
 
