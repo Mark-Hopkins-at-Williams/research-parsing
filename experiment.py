@@ -1,40 +1,48 @@
-from data import DataManager
-from twolayer import SimpleClassifier, train_net, evaluate
-from pytorch_transformers import BertModel, BertConfig, BertTokenizer
+# -*- coding: utf-8 -*-
 import torch
-from treebank import read_question_bank
-from data import TaggedSpanDataset
+import pandas as pd
 
-def example():
-    qbank = read_question_bank()
-    train_dataset = TaggedSpanDataset(qbank[0][:5])
-    dev_dataset = TaggedSpanDataset(qbank[1][:5])
-    test_dataset = TaggedSpanDataset(qbank[2][:5])
-    run_binary_classification(train_dataset, dev_dataset, test_dataset, 'negative','positive')
-    
+from train import train_net
+from networks import SimpleClassifier, DropoutClassifier
 
-def run_binary_classification(train, dev, test, tag1, tag2, verbose = True):    
-    """
-    Trains a binary classifier to distinguish between TaggedPhraseDataSource
-    phrases tagged with tag1 and phrases tagged with tag2.
-    
-    This returns the accuracy of the binary classifier on the test
-    partition.
-    
-    """    
-    dmanager = DataManager(train, dev, test, [tag1, tag2])
-    classifier = SimpleClassifier(1536,100,2)
-    net = train_net(classifier, dmanager,
+def tensor_batcher(t, batch_size):
+    def shuffle_rows(a):
+        return a[torch.randperm(a.size()[0])]        
+    neg = t[(t[:, 0] == 0).nonzero().squeeze(1)] # only negative rows
+    pos = t[(t[:, 0] == 1).nonzero().squeeze(1)] # only positive rows
+    neg = shuffle_rows(neg)
+    pos = shuffle_rows(pos)
+    min_row_count = min(neg.shape[0], pos.shape[0])
+    epoch_data = torch.cat([neg[:min_row_count], pos[:min_row_count]])    
+    epoch_data = shuffle_rows(epoch_data)
+    for i in range(0, len(epoch_data), batch_size):
+        yield epoch_data[i:i+batch_size]
+        
+def test_training(d, k):
+    def nth_dim_positive_data(n, d, k):
+        data = torch.randn(d, k)
+        u = torch.cat([torch.sign(data[2:3]), data])
+        return u.t()
+
+    train = nth_dim_positive_data(2, d, k)
+    dev = nth_dim_positive_data(2, d, 500)
+    #test = nth_dim_positive_data(2, d, 500)   
+    classifier = SimpleClassifier(d,100,2)
+    train_net(classifier, train, dev, tensor_batcher,
+              batch_size=96, n_epochs=30, learning_rate=0.001,
+              verbose=True)
+
+
+def train_parser(train_csv, dev_csv):
+    print('loading train')
+    train = torch.tensor(pd.read_csv(train_csv).values).float()
+    print('train size: {}'.format(train.shape[0]))
+    print('loading dev')
+    dev = torch.tensor(pd.read_csv(dev_csv).values).float()
+    print('dev size: {}'.format(dev.shape[0]))
+    classifier = DropoutClassifier(768*2,200,2)
+    net = train_net(classifier, train, dev, tensor_batcher,
                     batch_size=96, n_epochs=30, learning_rate=0.001,
                     verbose=True)
-    acc, misclassified = evaluate(net, dmanager, 'test')
-    if verbose:        
-        for tag in sorted(dmanager.tags):
-            print('{} phrases are tagged with "{}".'.format(
-                    dmanager.num_phrases[tag], tag))
-        print('\nERRORS:')
-        for (phrase, guessed, actual) in sorted(misclassified):
-            print('"{}" classified as "{}"\n  actually: "{}".'.format(
-                    phrase, guessed, actual))
-        print("\nOverall test accuracy = {:.2f}".format(acc))
-    return net, dmanager
+    return net
+
