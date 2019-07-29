@@ -33,11 +33,6 @@ def evaluate(net, dev, batcher):
     misclassified = []
     loss = torch.nn.CrossEntropyLoss()    
     for data in val_loader:
-        #inputs = torch.Tensor(data['instance'])#[dmanager.vectorize(inst) for 
-                               #inst in data['instance']])
-        #labels = torch.LongTensor([dmanager.tag_index(c) for
-        #                           c in data['tag']])
-            
         inputs = data[:,1:]
         labels = torch.clamp(data[:,0], min=0).long()
 
@@ -77,12 +72,8 @@ def train_net(net, train, dev, batcher, batch_size, n_epochs, learning_rate, ver
         total_train_loss = 0       
         net.train()
         for i, data in enumerate(train_loader, 0):
-            #print('{}/{}'.format(i, len(train_loader)))
             inputs = data[:,1:]
             labels = torch.clamp(data[:,0], min=0).long()
-            #inputs = torch.Tensor(inputs)
-            #labels = torch.LongTensor([dmanager.tag_index(c) for 
-            #                           c in data['tag']])
             optimizer.zero_grad()
             outputs = net(inputs)
             loss_size = loss(outputs, labels)
